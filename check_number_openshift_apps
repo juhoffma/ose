@@ -1,0 +1,39 @@
+#!/bin/bash
+
+# [root@node1 ~]# oo-idler-stats
+# 1 running, 0 idled, 0 half-idled for a total 1 of 1 (100.00 %)
+
+MAX_GEARS=$(cat /etc/openshift/resource_limits.conf | egrep "^max_active_gears" | sed 's/max_active_gears=//')
+
+WARNING_THRESHOLD=80 # percent
+CRITICAL_THRESHOLD=90 # percent
+
+running=""
+idled=""
+half=""
+subtotal=""
+total=""
+
+while read r i h s t; do
+  running="$r"
+  idled="$i"
+  half="$h"
+  subtotal="$s"
+  total="$t"
+done << EOF
+$(oo-idler-stats | awk '{ print $1 " " $3 " " $5 " " $10 " " $12}')
+EOF
+
+percentage=$(echo "scale=0; ${subtotal}*100/${MAX_GEARS}" | bc)
+echo "Total: ${subtotal} of ${total} of that is ${percentage} of max. ${MAX_GEARS} gears  | ${running};${idled};${half-idled};${MAX_GEARS}"
+echo "Running: $running"
+echo "Idled: $idled"
+echo "Half-Idled: $half"
+
+if [ $percentage -gt $CRITICAL_THRESHOLD ]; then
+  exit 2
+elif [ $percentage -gt $WARNING_THRESHOLD ]; then
+  exit 1
+else
+  exit 0
+fi
